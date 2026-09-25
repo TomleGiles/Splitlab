@@ -8,15 +8,23 @@ Aujourd'hui un analyste passe 20 à 40 min par course à extraire à la main pas
 **Utilisateur** : l'entraîneur ou l'analyste vidéo du club, pas le nageur.
 **Livrable clé** : une fiche de course (web + PDF) lisible par un coach, avec comparaison à des références.
 
-## Périmètre MVP — ne pas en sortir
+## Vidéos à traiter (décision du 2026-09-25)
 
-- **Nage** : crawl uniquement. Aucune autre nage tant que le crawl n'est pas validé sur vidéos réelles.
-- **Épreuve** : 50 NL en **bassin de 25 m** (un virage, pour pouvoir mesurer le virage).
-- **Captation** : une seule caméra fixe, vue latérale depuis le bord, à hauteur des gradins, **immobile pendant toute la course** (trépied, pas de zoom), les deux murs visibles. 25 ou 50 fps.
-- **Un nageur analysé par vidéo** (sa ligne est désignée par l'utilisateur).
-- **Flux** : upload vidéo → calibration du bassin → traitement asynchrone → correction semi-manuelle → fiche de course + export PDF.
+Pas de vidéo « de labo » : Splitlab doit traiter les vidéos réelles telles qu'on les trouve.
+Les vidéos de référence sont dans `data/` (jamais commitées) :
 
-Hors MVP (refuser ou noter dans `docs/backlog.md`, ne pas implémenter) : autres nages, multi-caméra, caméra sous-marine, comptage d'ondulations, angle du corps, analyse en direct, app mobile native, multi-nageurs simultanés, entraînement de modèles custom.
+- **Téléphone depuis les gradins**, tenu à la main, qui **panoramique** pour suivre la course, vue de biais (ex. China Open 2026, bassin de 50 m).
+- **Retransmission TV montée** : plans multiples (latéral, caméra sur rail au-dessus du bassin, sous-marines, gros plans), incrustations (noms, ligne de record, temps officiels), ralentis, public (ex. Mondiaux petit bassin Budapest 2024).
+
+Conséquences :
+- **Bassin de 25 ou 50 m** : le 50 NL a un virage en 25 m, aucun en 50 m.
+- **Caméra mobile** : l'homographie image → bassin est estimée **image par image** (recalage de la caméra sur le décor fixe), plus une seule fois.
+- **Montage TV** : découper en plans, n'analyser que les plans exploitables (bassin vu au-dessus de l'eau), écarter ralentis, public et gros plans. Les temps officiels incrustés (passage 25 m, temps final) sont une source exacte.
+- Ce qui ne peut pas être mesuré automatiquement passe par la correction semi-manuelle, jamais par une estimation.
+
+Restent dans le périmètre : **crawl**, **50 NL**, **un nageur analysé par vidéo** (couloir désigné par l'utilisateur). Flux : upload vidéo → calibration → traitement asynchrone → correction semi-manuelle → fiche de course + export PDF.
+
+Hors périmètre (noter dans `docs/backlog.md`, ne pas implémenter) : autres nages, analyse des plans sous-marins, comptage d'ondulations, angle du corps, analyse en direct, app mobile native, multi-nageurs simultanés, entraînement de modèles sans demande explicite.
 
 ## Ordre de construction
 
