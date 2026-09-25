@@ -26,3 +26,6 @@ node_modules/
 Thumbs.db
 .vscode/
 .idea/
+
+# Build du front (servi par FastAPI, reconstruit localement)
+web/dist/

@@ -20,7 +20,7 @@ Hors MVP (refuser ou noter dans `docs/backlog.md`, ne pas implémenter) : autres
 
 ## Ordre de construction
 
-1. **Pipeline en ligne de commande**, validé sur 5–10 courses réelles contre la vérité terrain (cibles de la section « Évaluation »). Tant que ces cibles ne sont pas tenues, pas de front.
+1. **Pipeline en ligne de commande**, validé sur 5–10 courses réelles contre la vérité terrain (cibles de la section « Évaluation »). Tant que ces cibles ne sont pas tenues, le front se limite à la fiche de course d'une **course simulée** (`api/demo.py`, `GET /api/demo/race`), toujours affichée comme démonstration.
 2. **Web V0** : la stack simplifiée ci-dessous, pour quelques clubs pilotes.
 3. **Passage à l'échelle** (colonne « Plus tard ») seulement quand un besoin concret le justifie (charge, nombre de clubs, hébergement). Ne pas l'anticiper sans décision explicite.
 
@@ -74,8 +74,9 @@ uv run pytest                   # tests Python
 uv run ruff check . && uv run mypy cv api
 uv run alembic upgrade head
 uv run python -m api.worker     # worker de traitement vidéo
-uv run uvicorn api.main:app --reload
-cd web && pnpm dev
+uv run uvicorn api.main:app --reload   # sert aussi web/dist → http://localhost:8000
+cd web && pnpm build            # build du front servi par FastAPI (V0)
+cd web && pnpm dev              # dev front sur :5173, /api proxifié vers :8000
 ```
 
 Avant de considérer une tâche terminée : ruff, mypy et pytest passent.
@@ -92,18 +93,21 @@ Avant de considérer une tâche terminée : ruff, mypy et pytest passent.
 L'utilisateur clique au moins 4 repères sur une frame (coins de la ligne, marques 5 m / 15 m des lignes d'eau) et saisit leurs coordonnées réelles. On calcule l'homographie avec `cv2.findHomography` (RANSAC). Afficher l'erreur de reprojection ; refuser au-delà d'un seuil (> 0,3 m).
 
 ### Événements détectés
-`start_signal`, `entry` (entrée dans l'eau), `breakout` (reprise de nage), `stroke_cycle[]` (un cycle = deux bras en crawl), `wall_in` / `wall_out` (virage), `finish`.
+`start_signal`, `block_off` (dernier contact avec le plot), `entry` (entrée dans l'eau), `breakout` (reprise de nage), `stroke_cycle[]` (un cycle = deux bras en crawl), `wall_in` / `wall_out` (virage : contact des pieds / poussée), `finish` (touche).
+
+- Un `stroke_cycle` marque le **début** d'un cycle : l'entrée dans l'eau de la main côté caméra. n marqueurs délimitent n − 1 cycles.
+- Le point suivi (la tête) fait demi-tour ~1–2 m avant le mur : `d` saute d'autant au virage. Les passages et le temps de virage, lus par première traversée, n'en dépendent pas ; les points du profil de vitesse dans ce saut héritent de la confiance réduite des bords de longueur.
 
 Le signal de départ : détection du bip audio si disponible, sinon saisie manuelle de la frame.
 
 ### Métriques (définitions de référence)
 | Métrique | Définition |
 |---|---|
-| Temps de réaction | `start_signal` → dernier contact plot. Si non mesurable : `null`, jamais estimé |
-| Passages | temps à 15 m, 25 m, 35 m, 50 m (distance parcourue) |
-| Distance de coulée | `x` au `breakout`, après départ et après virage |
-| Fréquence (SR) | cycles/min, par section de nage libre |
-| Amplitude (SL) | m/cycle = `v_moyenne / (SR / 60)` |
+| Temps de réaction | `start_signal` → `block_off`. Si non mesurable : `null`, jamais estimé |
+| Passages | temps à 15 m, 25 m, 35 m, 50 m (distance parcourue). 15 et 35 m : première traversée par le point suivi ; 25 m : `wall_in` ; 50 m : `finish` (le point suivi n'atteint jamais le mur) |
+| Distance de coulée | distance au mur quitté au `breakout` : `x` après le départ, `25 − x` après le virage |
+| Fréquence (SR) | cycles/min, par section de nage libre (aller : cycles avant `wall_in`, retour : après `wall_out`) |
+| Amplitude (SL) | m/cycle = `v_moyenne / (SR / 60)`, `v_moyenne` prise du premier au dernier marqueur de la section |
 | Indice de nage (SI) | `v × SL` |
 | Temps de virage | de 5 m avant le mur à 5 m après (d = 20 → 30 m) |
 | Vitesse d'arrivée | vitesse moyenne sur les 5 derniers mètres |
@@ -119,12 +123,14 @@ Toutes ces fonctions vivent dans `cv/metrics.py`, sont **pures** (pas d'I/O, pas
 
 Les chiffres bruts seuls ne suffisent pas : chaque métrique affichée doit avoir une comparaison ou une interprétation.
 
+Lecture croisée SR / SL (retour vs aller) : une variation est « stable » si elle reste dans ±3 %. Fréquence stable + amplitude en baisse = perte d'efficacité par cycle (fatigue) ; amplitude stable + fréquence en baisse = baisse de rythme ; fréquence en hausse + amplitude en baisse = compensation. Seuil à ajuster avec les coachs pilotes.
+
 ## Fiabilité et mode semi-manuel
 
 - Fiables avec bon tracking + bonne homographie : position, vitesse, passages, coulées, temps de virage.
 - **Fragiles** (éclaboussures, remous) : cycles de bras → fréquence et amplitude. Le mode semi-manuel est prévu **dès le départ**, pas en rattrapage.
 - Le front propose une timeline vidéo où l'utilisateur ajoute / déplace / supprime des événements ; les métriques sont recalculées côté serveur à partir des événements corrigés (jamais éditées directement).
-- Si la confiance d'un événement est faible, l'afficher comme « à vérifier » plutôt que de masquer l'incertitude.
+- Si la confiance d'un événement est faible, l'afficher comme « à vérifier » plutôt que de masquer l'incertitude. Seuil : confiance < 0,7.
 
 ## Évaluation du pipeline
 

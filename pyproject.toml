@@ -4,12 +4,15 @@ version = "0.1.0"
 description = "Analyse vidéo automatisée de course de natation (50 NL, bassin de 25 m)"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.115",
     "numpy>=2.0",
     "scipy>=1.14",
+    "uvicorn>=0.30",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=1.11",
     "pytest>=8.3",
     "ruff>=0.6",

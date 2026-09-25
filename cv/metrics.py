@@ -31,6 +31,7 @@ PROFILE_STEP = 0.5  # m
 
 _UNIQUE_EVENTS = (
     EventType.START_SIGNAL,
+    EventType.BLOCK_OFF,
     EventType.ENTRY,
     EventType.WALL_IN,
     EventType.WALL_OUT,
@@ -154,6 +155,15 @@ def _breakouts(
     return (before[0] if before else None), (after[0] if after else None)
 
 
+def reaction_time(start_signal: Event | None, block_off: Event | None) -> MetricValue:
+    """Signal de départ → dernier contact avec le plot. Jamais estimé si `block_off` manque."""
+    if block_off is None:
+        return NOT_MEASURABLE
+    if start_signal is None:  # t = 0 est le signal par convention
+        return _measured(block_off.t, events=[block_off])
+    return _measured(block_off.t - start_signal.t, events=[start_signal, block_off])
+
+
 def splits(
     traj: Trajectory, wall_in: Event | None, finish: Event | None
 ) -> dict[float, MetricValue]:
@@ -258,9 +268,7 @@ def compute_race_metrics(traj: Trajectory, events: Sequence[Event]) -> RaceMetri
     inbound = [e for e in cycles if wall_out is not None and e.t > wall_out.t]
 
     return RaceMetrics(
-        # Le dernier contact plot n'est pas encore un événement du modèle :
-        # temps de réaction non mesurable, jamais estimé.
-        reaction_time=NOT_MEASURABLE,
+        reaction_time=reaction_time(unique[EventType.START_SIGNAL], unique[EventType.BLOCK_OFF]),
         splits=splits(traj, wall_in, finish),
         underwater_start=underwater_distance(traj, breakout_start, from_wall_x=0.0),
         underwater_turn=underwater_distance(traj, breakout_turn, from_wall_x=POOL_LENGTH),

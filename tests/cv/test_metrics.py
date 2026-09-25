@@ -105,8 +105,22 @@ def test_constant_speed_velocity_profile(constant_metrics: RaceMetrics) -> None:
     assert profile.v == pytest.approx(np.full(profile.d.size, SPEED))
 
 
-def test_reaction_time_is_never_estimated(constant_metrics: RaceMetrics) -> None:
+def test_reaction_time_is_never_estimated_without_block_off(
+    constant_metrics: RaceMetrics,
+) -> None:
     assert constant_metrics.reaction_time == NOT_MEASURABLE
+
+
+def test_reaction_time_runs_from_start_signal_to_block_off() -> None:
+    events = [
+        event(EventType.START_SIGNAL, 0.0),
+        event(EventType.BLOCK_OFF, 0.68, confidence=0.9),
+    ]
+
+    reaction = compute_race_metrics(constant_speed_trajectory(), events).reaction_time
+
+    assert reaction.value == pytest.approx(0.68)
+    assert reaction.confidence == pytest.approx(0.9)
 
 
 def test_full_confidence_and_no_manual_correction(constant_metrics: RaceMetrics) -> None:

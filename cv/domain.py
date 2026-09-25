@@ -21,6 +21,7 @@ RACE_DISTANCE = 50.0  # m
 
 class EventType(StrEnum):
     START_SIGNAL = "start_signal"
+    BLOCK_OFF = "block_off"
     ENTRY = "entry"
     BREAKOUT = "breakout"
     STROKE_CYCLE = "stroke_cycle"
