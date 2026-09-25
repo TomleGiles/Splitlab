@@ -12,7 +12,7 @@ Aujourd'hui un analyste passe 20 à 40 min par course à extraire à la main pas
 
 - **Nage** : crawl uniquement. Aucune autre nage tant que le crawl n'est pas validé sur vidéos réelles.
 - **Épreuve** : 50 NL en **bassin de 25 m** (un virage, pour pouvoir mesurer le virage).
-- **Captation** : une seule caméra fixe, vue latérale depuis le bord, à hauteur des gradins. 25 ou 50 fps.
+- **Captation** : une seule caméra fixe, vue latérale depuis le bord, à hauteur des gradins, **immobile pendant toute la course** (trépied, pas de zoom), les deux murs visibles. 25 ou 50 fps.
 - **Un nageur analysé par vidéo** (sa ligne est désignée par l'utilisateur).
 - **Flux** : upload vidéo → calibration du bassin → traitement asynchrone → correction semi-manuelle → fiche de course + export PDF.
 
@@ -30,7 +30,7 @@ Non négociable **dès le V0** : traitement vidéo hors de la requête HTTP, mul
 
 | Couche | V0 | Plus tard |
 |---|---|---|
-| Pipeline CV | Python 3.12, OpenCV, Ultralytics YOLO (modèle pré-entraîné, détection `person`), ByteTrack, NumPy/SciPy | — |
+| Pipeline CV | Python 3.12, OpenCV (homographie, redressement du couloir, soustraction de fond), NumPy/SciPy — **sans apprentissage**. YOLO pré-entraîné écarté : il ne détecte pas les nageurs en nage (`docs/essais/2026-09-25-detection-yolo.md`) | Détecteur « nageur » entraîné, si la soustraction de fond ne suffit pas |
 | API | FastAPI, Pydantic v2, SQLAlchemy 2 + Alembic | — |
 | Jobs | Un process worker qui dépile une table `jobs` dans PostgreSQL (`SELECT … FOR UPDATE SKIP LOCKED`) | Redis + arq |
 | Base | PostgreSQL 16 | — |
@@ -46,7 +46,7 @@ Non négociable **dès le V0** : traitement vidéo hors de la requête HTTP, mul
 ├── cv/                  # pipeline de vision, librairie Python pure, sans dépendance web
 │   ├── domain.py        # types partagés : Event, Trajectory, MetricValue
 │   ├── calibration.py   # homographie image → bassin
-│   ├── detection.py     # YOLO + tracking, sélection du nageur de la ligne cible
+│   ├── detection.py     # nageur dans son couloir : bande redressée, soustraction de fond
 │   ├── trajectory.py    # lissage, position x(t) en mètres, vitesse v(t)
 │   ├── events.py        # détection départ, coulée, reprise de nage, cycles, virage, arrivée
 │   ├── metrics.py       # calcul des métriques à partir des événements (fonctions pures)
@@ -96,7 +96,7 @@ L'utilisateur clique au moins 4 repères sur une frame (coins de la ligne, marqu
 `start_signal`, `block_off` (dernier contact avec le plot), `entry` (entrée dans l'eau), `breakout` (reprise de nage), `stroke_cycle[]` (un cycle = deux bras en crawl), `wall_in` / `wall_out` (virage : contact des pieds / poussée), `finish` (touche).
 
 - Un `stroke_cycle` marque le **début** d'un cycle : l'entrée dans l'eau de la main côté caméra. n marqueurs délimitent n − 1 cycles.
-- Le point suivi (la tête) fait demi-tour ~1–2 m avant le mur : `d` saute d'autant au virage. Les passages et le temps de virage, lus par première traversée, n'en dépendent pas ; les points du profil de vitesse dans ce saut héritent de la confiance réduite des bords de longueur.
+- Le point suivi est **l'avant du nageur détecté** (front de la zone qui diffère de l'eau : bras et tête). Il fait demi-tour avant le mur : `d` saute d'autant au virage. Les passages et le temps de virage, lus par première traversée, n'en dépendent pas ; les points du profil de vitesse dans ce saut héritent de la confiance réduite des bords de longueur.
 
 Le signal de départ : détection du bip audio si disponible, sinon saisie manuelle de la frame.
 
@@ -150,7 +150,7 @@ Lecture croisée SR / SL (retour vs aller) : une variation est « stable » si e
 ## Consignes de travail pour Claude
 
 - Travailler par petites étapes testables ; commencer par `cv/metrics.py` + tests, puis `trajectory`, puis `events`, puis la détection.
-- Ne pas entraîner ni fine-tuner de modèle sans demande explicite ; partir du YOLO pré-entraîné.
+- Ne pas entraîner ni fine-tuner de modèle sans demande explicite ; la détection est sans apprentissage (décision du 2026-09-25).
 - Ne pas ajouter de dépendance lourde sans justification courte.
 - Rester sur la stack V0 : pas de Redis, S3, Next.js ni WeasyPrint sans décision explicite.
 - Les choix d'interprétation en attente de validation sont listés dans `docs/questions-ouvertes.md`.
