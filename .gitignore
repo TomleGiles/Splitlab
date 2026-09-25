@@ -29,3 +29,6 @@ Thumbs.db
 
 # Build du front (servi par FastAPI, reconstruit localement)
 web/dist/
+
+# Poids de modèles téléchargés
+*.pt
