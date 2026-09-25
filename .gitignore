@@ -1,0 +1,28 @@
+# Vidéos réelles : données personnelles (souvent des mineurs) — jamais commitées
+data/
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Front
+node_modules/
+.next/
+
+# Environnement / secrets
+.env
+.env.*
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
