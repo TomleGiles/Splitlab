@@ -15,6 +15,9 @@ from numpy.typing import NDArray
 
 FloatArray = NDArray[np.float64]
 
+POOL_LENGTH = 25.0  # m
+RACE_DISTANCE = 50.0  # m
+
 
 class EventType(StrEnum):
     START_SIGNAL = "start_signal"

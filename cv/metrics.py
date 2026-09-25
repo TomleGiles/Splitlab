@@ -13,10 +13,17 @@ from itertools import pairwise
 
 import numpy as np
 
-from cv.domain import NOT_MEASURABLE, Event, EventType, FloatArray, MetricValue, Trajectory
+from cv.domain import (
+    NOT_MEASURABLE,
+    POOL_LENGTH,
+    RACE_DISTANCE,
+    Event,
+    EventType,
+    FloatArray,
+    MetricValue,
+    Trajectory,
+)
 
-POOL_LENGTH = 25.0  # m
-RACE_DISTANCE = 50.0  # m
 SPLIT_DISTANCES = (15.0, 25.0, 35.0, 50.0)  # m, distance parcourue
 TURN_WINDOW = 5.0  # m avant et après le mur
 FINISH_WINDOW = 5.0  # m

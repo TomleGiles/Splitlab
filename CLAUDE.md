@@ -18,18 +18,26 @@ Aujourd'hui un analyste passe 20 à 40 min par course à extraire à la main pas
 
 Hors MVP (refuser ou noter dans `docs/backlog.md`, ne pas implémenter) : autres nages, multi-caméra, caméra sous-marine, comptage d'ondulations, angle du corps, analyse en direct, app mobile native, multi-nageurs simultanés, entraînement de modèles custom.
 
+## Ordre de construction
+
+1. **Pipeline en ligne de commande**, validé sur 5–10 courses réelles contre la vérité terrain (cibles de la section « Évaluation »). Tant que ces cibles ne sont pas tenues, pas de front.
+2. **Web V0** : la stack simplifiée ci-dessous, pour quelques clubs pilotes.
+3. **Passage à l'échelle** (colonne « Plus tard ») seulement quand un besoin concret le justifie (charge, nombre de clubs, hébergement). Ne pas l'anticiper sans décision explicite.
+
+Non négociable **dès le V0** : traitement vidéo hors de la requête HTTP, multi-tenant strict par `club_id`, suppression réelle des vidéos (voir « Données et RGPD »).
+
 ## Stack
 
-| Couche | Choix |
-|---|---|
-| Pipeline CV | Python 3.12, OpenCV, Ultralytics YOLO (modèle pré-entraîné, détection `person`), ByteTrack, NumPy/SciPy |
-| API | FastAPI, Pydantic v2, SQLAlchemy 2 + Alembic |
-| Jobs | Redis + arq (traitement vidéo asynchrone, jamais dans la requête HTTP) |
-| Base | PostgreSQL 16 |
-| Stockage vidéo | S3-compatible (MinIO en local) |
-| Front | Next.js (App Router), TypeScript strict, Tailwind, Recharts |
-| PDF | WeasyPrint (HTML → PDF, même template que la fiche web) |
-| Outillage | `uv` (Python), `pnpm` (front), Docker Compose, pytest, Ruff, mypy, ESLint |
+| Couche | V0 | Plus tard |
+|---|---|---|
+| Pipeline CV | Python 3.12, OpenCV, Ultralytics YOLO (modèle pré-entraîné, détection `person`), ByteTrack, NumPy/SciPy | — |
+| API | FastAPI, Pydantic v2, SQLAlchemy 2 + Alembic | — |
+| Jobs | Un process worker qui dépile une table `jobs` dans PostgreSQL (`SELECT … FOR UPDATE SKIP LOCKED`) | Redis + arq |
+| Base | PostgreSQL 16 | — |
+| Stockage vidéo | Disque local chiffré, derrière une interface `VideoStorage` | S3-compatible |
+| Front | React + Vite (SPA servie par FastAPI), TypeScript strict, Tailwind, Recharts | Next.js si besoin de SSR |
+| PDF | Impression navigateur de la page fiche (CSS `@media print`) | WeasyPrint, même template |
+| Outillage | `uv` (Python), `pnpm` (front), Docker Compose (Postgres seul), pytest, Ruff, mypy, ESLint | — |
 
 ## Arborescence
 
@@ -43,8 +51,8 @@ Hors MVP (refuser ou noter dans `docs/backlog.md`, ne pas implémenter) : autres
 │   ├── events.py        # détection départ, coulée, reprise de nage, cycles, virage, arrivée
 │   ├── metrics.py       # calcul des métriques à partir des événements (fonctions pures)
 │   └── pipeline.py      # orchestration vidéo → RaceAnalysis
-├── api/                 # FastAPI, modèles DB, jobs arq
-├── web/                 # front Next.js
+├── api/                 # FastAPI, modèles DB, worker de jobs, stockage vidéo
+├── web/                 # front React + Vite (build servi par FastAPI)
 ├── benchmarks/          # valeurs de référence élite (JSON versionné, sources citées)
 ├── tests/
 │   ├── cv/              # tests unitaires sur trajectoires synthétiques
@@ -61,11 +69,11 @@ uv run python -m cv.pipeline --video path.mp4 --calib calib.json --lane 4 --out 
 ## Commandes
 
 ```
-docker compose up -d            # Postgres, Redis, MinIO
+docker compose up -d            # Postgres
 uv run pytest                   # tests Python
 uv run ruff check . && uv run mypy cv api
 uv run alembic upgrade head
-uv run arq api.worker.WorkerSettings
+uv run python -m api.worker     # worker de traitement vidéo
 uv run uvicorn api.main:app --reload
 cd web && pnpm dev
 ```
@@ -138,5 +146,7 @@ Les chiffres bruts seuls ne suffisent pas : chaque métrique affichée doit avoi
 - Travailler par petites étapes testables ; commencer par `cv/metrics.py` + tests, puis `trajectory`, puis `events`, puis la détection.
 - Ne pas entraîner ni fine-tuner de modèle sans demande explicite ; partir du YOLO pré-entraîné.
 - Ne pas ajouter de dépendance lourde sans justification courte.
+- Rester sur la stack V0 : pas de Redis, S3, Next.js ni WeasyPrint sans décision explicite.
+- Les choix d'interprétation en attente de validation sont listés dans `docs/questions-ouvertes.md`.
 - En cas de doute sur une définition métier (natation), demander plutôt qu'inventer ; les définitions de ce fichier font foi.
 - Mettre à jour ce fichier quand une décision d'architecture ou une définition change.

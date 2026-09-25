@@ -5,6 +5,7 @@ description = "Analyse vidéo automatisée de course de natation (50 NL, bassin 
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.0",
+    "scipy>=1.14",
 ]
 
 [dependency-groups]
@@ -12,6 +13,7 @@ dev = [
     "mypy>=1.11",
     "pytest>=8.3",
     "ruff>=0.6",
+    "scipy-stubs>=1.18.1.1",
 ]
 
 [tool.uv]
